@@ -13,10 +13,10 @@ export default function Image() {
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", color: "#fff", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "baseline", fontSize: 200, fontWeight: 700, letterSpacing: "-0.04em" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", fontSize: 200, fontWeight: 700, letterSpacing: "-0.04em" }}>
           {LETTERS.map(([letter, color], index) =>
             letter === "o"
-              ? <div key={index} style={{ width: 104, height: 104, margin: "0 8px", borderRadius: 999, background: color }} />
+              ? <div key={index} style={{ width: 104, height: 104, margin: "0 8px 46px", borderRadius: 999, background: color }} />
               : <span key={index} style={{ color }}>{letter}</span>,
           )}
         </div>
