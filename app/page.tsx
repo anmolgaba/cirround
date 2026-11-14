@@ -1,8 +1,8 @@
 "use client";
 
-import { Howl } from "howler";
+import { Howl, Howler } from "howler";
 import type { Application, Graphics } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 type KeyConfig = { color: string; sound: string };
 type Circle = { graphic: Graphics; hue: number; saturation: number; lightness: number };
@@ -46,9 +46,16 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
   return ((Math.round((red + offset) * 255) << 16) | (Math.round((green + offset) * 255) << 8) | Math.round((blue + offset) * 255));
 }
 
+
+const WORDMARK = "cirround".split("");
+
+function keyFromEvent(event: KeyboardEvent) {
+  return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : event.key.toLowerCase();
+}
+
 export default function Home() {
   const stageRef = useRef<HTMLDivElement>(null);
-  const [hasPressedKey, setHasPressedKey] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -58,6 +65,7 @@ export default function Home() {
     let removeInputListeners = () => {};
     const circles: Circle[] = [];
     const sounds = Object.fromEntries(Object.entries(KEY_DATA).map(([key, { sound }]) => [key, new Howl({ src: [`/sounds/${sound}`] })])) as Record<string, Howl>;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const start = async () => {
       const PIXI = await import("pixi.js");
@@ -70,10 +78,12 @@ export default function Home() {
       const triggerEffect = (key: string, x: number, y: number) => {
         const keyConfig = KEY_DATA[key];
         if (!keyConfig || !app) return;
-        setHasPressedKey(true);
+        setHasStarted(true);
+        if (Howler.ctx?.state === "suspended") void Howler.ctx.resume();
         const color = hexToHsl(keyConfig.color);
         const graphic = new PIXI.Graphics().circle(0, 0, 500).fill(0xffffff);
         graphic.tint = hslToHex(color.hue, color.saturation, color.lightness);
+        if (reducedMotion.matches) graphic.alpha = 0.6;
         graphic.position.set(x, y);
         app.stage.addChild(graphic);
         circles.push({ graphic, ...color });
@@ -81,27 +91,26 @@ export default function Home() {
       };
 
       const handleKeyDown = (event: KeyboardEvent) => {
-        const pixiApp = app;
-        if (!pixiApp) return;
-        const key = event.key.toLowerCase();
-        triggerEffect(key, Math.random() * pixiApp.screen.width, Math.random() * pixiApp.screen.height);
+        if (!app || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+        triggerEffect(keyFromEvent(event), Math.random() * app.screen.width, Math.random() * app.screen.height);
       };
 
       const handlePointerDown = (event: PointerEvent) => {
-        const pixiApp = app;
-        if (event.pointerType !== "touch" || !pixiApp) return;
-        const bounds = pixiApp.canvas.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) * (pixiApp.screen.width / bounds.width);
-        const y = (event.clientY - bounds.top) * (pixiApp.screen.height / bounds.height);
-        const key = KEYS[Math.floor(Math.random() * KEYS.length)];
-        triggerEffect(key, x, y);
+        if (!app || (event.pointerType === "mouse" && event.button !== 0)) return;
+        const bounds = stage.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) * (app.screen.width / bounds.width);
+        const y = (event.clientY - bounds.top) * (app.screen.height / bounds.height);
+        const band = Math.min(KEYS.length - 1, Math.max(0, Math.floor((x / app.screen.width) * KEYS.length)));
+        if (event.pointerType === "touch") navigator.vibrate?.(8);
+        triggerEffect(KEYS[band], x, y);
       };
 
       app.ticker.add((ticker) => {
         const delta = Math.min(ticker.deltaTime, 3);
+        const hueSpeed = reducedMotion.matches ? 0.25 : 1;
         for (let index = circles.length - 1; index >= 0; index -= 1) {
           const circle = circles[index];
-          circle.hue = (circle.hue + delta) % 360;
+          circle.hue = (circle.hue + delta * hueSpeed) % 360;
           circle.graphic.tint = hslToHex(circle.hue, circle.saturation, circle.lightness);
           circle.graphic.scale.set(circle.graphic.scale.x * Math.pow(0.9, delta));
           if (Math.PI * 500 ** 2 * circle.graphic.scale.x ** 2 < 1) {
@@ -112,14 +121,14 @@ export default function Home() {
       });
 
       window.addEventListener("keydown", handleKeyDown);
-      app.canvas.addEventListener("pointerdown", handlePointerDown);
-      return () => {
+      stage.addEventListener("pointerdown", handlePointerDown);
+      removeInputListeners = () => {
         window.removeEventListener("keydown", handleKeyDown);
-        app?.canvas.removeEventListener("pointerdown", handlePointerDown);
+        stage.removeEventListener("pointerdown", handlePointerDown);
       };
     };
 
-    void start().then((removeListeners) => { if (removeListeners) removeInputListeners = removeListeners; });
+    void start();
     return () => {
       cancelled = true;
       removeInputListeners();
@@ -130,14 +139,26 @@ export default function Home() {
   }, []);
 
   return (
-    <div ref={stageRef} aria-label="Interactive sound circles" role="application">
-      <p
-        aria-hidden={hasPressedKey}
-        className={`keyboard-prompt${hasPressedKey ? " keyboard-prompt--dismissed" : ""}`}
-        role="status"
-      >
-        Tap anywhere or press any key from A to Z, and turn up the speakers
+    <div ref={stageRef} aria-describedby="instructions" aria-label="cirround: interactive sound circles" role="application">
+      <p className="visually-hidden" id="instructions">
+        Press any letter key from A to Z, or tap or click anywhere, to play a sound and paint a circle.
       </p>
+      <div aria-hidden="true" className={`intro${hasStarted ? " intro--dismissed" : ""}`}>
+        <h1 className="intro__wordmark">
+          {WORDMARK.map((letter, index) =>
+            letter === "o"
+              ? <span className="intro__dot" key={index} style={{ "--letter-color": KEY_DATA[letter].color } as CSSProperties} />
+              : <span key={index} style={{ color: KEY_DATA[letter].color }}>{letter}</span>,
+          )}
+        </h1>
+        <p className="intro__hint">
+          <span className="intro__hint--touch">Tap anywhere to play</span>
+          <span className="intro__hint--pointer">Press A–Z or click anywhere to play</span>
+        </p>
+        <p className="intro__sub">
+          Sound on<span className="intro__hint--touch"> · no sound? check your silent switch</span>
+        </p>
+      </div>
     </div>
   );
 }

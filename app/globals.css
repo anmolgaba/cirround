@@ -1,33 +1,94 @@
 * { box-sizing: border-box; }
 
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #000;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 
 canvas, [role="application"] { display: block; width: 100%; height: 100%; background: #000; }
 
-[role="application"] { touch-action: none; }
+[role="application"] { height: 100dvh; touch-action: none; }
 
-.keyboard-prompt {
-  position: fixed;
-  inset: 50% auto auto 50%;
-  z-index: 1;
-  width: max-content;
-  max-width: calc(100vw - 2rem);
-  margin: 0;
-  padding: 0.625rem 0.875rem;
-  transform: translate(-50%, -50%);
-  border: 1px solid #4b4b4b;
-  border-radius: 999px;
-  background: #252525;
-  color: #fff;
-  font: 0.75rem/1.2 system-ui, sans-serif;
-  letter-spacing: 0.01em;
-  text-align: center;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-  transition: opacity 300ms ease-out, visibility 300ms step-end;
 }
 
-.keyboard-prompt--dismissed {
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+  color: #fff;
+  font-family: var(--font-display), system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 250ms cubic-bezier(0.23, 1, 0.32, 1), transform 250ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s linear 250ms;
+}
+
+.intro--dismissed {
   visibility: hidden;
   opacity: 0;
-  pointer-events: none;
+  transform: scale(0.96);
+}
+
+.intro__wordmark {
+  display: flex;
+  align-items: baseline;
+  margin: 0 0 0.5rem;
+  font-size: clamp(3.5rem, 17vw, 9rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.intro__dot {
+  display: inline-block;
+  width: 0.52em;
+  height: 0.52em;
+  margin: 0 0.04em;
+  border-radius: 50%;
+  background: var(--letter-color);
+}
+
+.intro__hint {
+  margin: 0;
+  font-size: clamp(1rem, 4vw, 1.25rem);
+  font-weight: 500;
+  text-wrap: balance;
+}
+
+.intro__sub {
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 0.875rem;
+  text-wrap: balance;
+}
+
+.intro__hint--touch { display: none; }
+
+@media (hover: none) and (pointer: coarse) {
+  .intro__hint--touch { display: inline; }
+  .intro__hint--pointer { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro { transition: opacity 200ms ease, visibility 0s linear 200ms; }
+  .intro--dismissed { transform: none; }
 }
